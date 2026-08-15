@@ -21,7 +21,7 @@ from app.models.user import User, UserRole
 from app.models.task import Task, TaskStatus
 from app.models.note import Note
 from app.models.memory import Memory, MemoryCategory
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 logger = logging.getLogger("hermes")
 
@@ -78,13 +78,17 @@ class HermesService:
             base_url = "https://api.openai.com/v1"
             model = "hermes-agent-mock"
 
-        # Ephemeral system context explaining user role & permissions
+        # Ephemeral system context explaining user role & permissions & tool guidelines
         role_label = "CHỦ NHÂN (OWNER - FULL PRIVILEGES)" if user.role == UserRole.OWNER.value else "NGƯỜI DÙNG THƯỜNG (USER - PUBLIC PRIVILEGES)"
         system_context = (
             f"You are the official Hermes Personal Assistant running 24/7.\n"
             f"Current User: {user.display_name} (ID: {user.external_user_id}, Channel: {user.channel})\n"
             f"Role: {user.role} - {role_label}\n"
-            f"Always use your built-in tools (memory, todo, execute_code, terminal) when needed. Keep final replies concise and natural for Zalo delivery in Vietnamese."
+            f"Key Guidelines:\n"
+            f"1. When the user asks to create/add tasks, use the `todo` tool to add items with concise titles.\n"
+            f"2. When the user asks to complete, finish, mark done, or update a task (e.g. 'hoàn thành task', 'xong task', 'đã làm xong'): DO NOT create a new task named 'Hoàn thành task'. Instead, call `todo` to check current tasks, identify which task the user refers to, and update its status to 'completed'. If unclear which task, list current pending tasks and ask which one they want to complete.\n"
+            f"3. When the user asks to save memories or preferences, use the `memory` tool.\n"
+            f"4. Always keep final responses natural, helpful, and concise for mobile Zalo delivery in Vietnamese."
         )
 
         agent = AIAgent(
@@ -236,13 +240,17 @@ class HermesService:
                         except Exception:
                             pass
                     if isinstance(raw_todos, list):
+                        # Clear existing tasks for this user and rebuild from current active state
+                        await session.execute(delete(Task).where(Task.user_id == user.id))
                         for item in raw_todos:
                             if isinstance(item, dict) and item.get("content"):
+                                st = str(item.get("status", "pending")).lower()
+                                task_status = TaskStatus.COMPLETED.value if st == "completed" else TaskStatus.PENDING.value
                                 t_obj = Task(
                                     id=str(uuid.uuid4()),
                                     user_id=user.id,
                                     title=item.get("content"),
-                                    status=TaskStatus.PENDING.value,
+                                    status=task_status,
                                     created_at=datetime.utcnow(),
                                 )
                                 session.add(t_obj)
