@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: agent_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=production
+      - DATABASE_URL=sqlite+aiosqlite:////app/agent.db
+      - LLM_PROVIDER=${LLM_PROVIDER:-mock}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o-mini}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-1.5-flash}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL:-anthropic/claude-3.5-sonnet}
+      - OWNER_NAME=${OWNER_NAME:-Chủ nhân}
+      - OWNER_ZALO_ID=${OWNER_ZALO_ID:-owner_zalo_id_example}
+      - OWNER_PHONE=${OWNER_PHONE:-0901234567}
+      - ZALOCRM_BASE_URL=${ZALOCRM_BASE_URL:-http://zalocrm:3000}
+      - ZALOCRM_API_KEY=${ZALOCRM_API_KEY}
+      - ZALOCRM_WEBHOOK_SECRET=${ZALOCRM_WEBHOOK_SECRET}
+      - ZALOCRM_DEFAULT_ACCOUNT_ID=${ZALOCRM_DEFAULT_ACCOUNT_ID:-zalo_account_default}
+      - MAX_AGENT_ITERATIONS=8
+      - SHORT_TERM_MEMORY_LIMIT=20
+    volumes:
+      - ./backend_data:/app/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agent_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend

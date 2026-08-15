@@ -1,0 +1,40 @@
+# Environment & Secrets
+.env
+.env.local
+*.env
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+backend/.venv/
+.venv/
+env/
+venv/
+.pytest_cache/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Node & Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+vendor/ZaloCRM/node_modules/
+vendor/ZaloCRM/backend/node_modules/
+vendor/ZaloCRM/frontend/node_modules/
+vendor/ZaloCRM/dist/
+vendor/ZaloCRM/backend/dist/
+vendor/ZaloCRM/frontend/dist/
+
+# Databases & Backups
+*.db
+*.sqlite
+*.sqlite3
+agent.db
+vendor/ZaloCRM/backups/
+backend_data/
+
+# OS & Logs
+.DS_Store
+*.log
