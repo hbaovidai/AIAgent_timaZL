@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, Any, List
 from fastapi import APIRouter
 from pydantic import BaseModel
 from app.config.settings import settings
@@ -10,7 +10,7 @@ router = APIRouter()
 
 class TestChannelMessageRequest(BaseModel):
     channel: str = "zalocrm"
-    recipient_id: str
+    recipient_id: Optional[str] = None
     text: str = "Tin nhắn kiểm tra từ Hermes Agent."
 
 
@@ -26,6 +26,7 @@ async def get_channels_status():
             "status": zalocrm_status.get("status", "ONLINE (DEMO MODE)"),
             "base_url": settings.ZALOCRM_BASE_URL,
             "default_account_id": settings.ZALOCRM_DEFAULT_ACCOUNT_ID,
+            "message": f"Connected to {settings.ZALOCRM_BASE_URL} (Account: {settings.ZALOCRM_DEFAULT_ACCOUNT_ID[:8]}...)",
             "description": "Zalo Gateway quản lý tài khoản Zalo cá nhân (QR Login, session persistence, send/receive message).",
             "details": zalocrm_status,
         },
@@ -33,6 +34,7 @@ async def get_channels_status():
             "id": "mock",
             "name": "Mock Chat (Web Demo Console)",
             "status": "ONLINE",
+            "message": "Web Demo Console sẵn sàng hoạt động",
             "description": "Kênh mô phỏng trực tiếp trên Web Dashboard phục vụ đánh giá đề tài khóa luận.",
             "details": {"status": "ONLINE", "ready": True},
         },
@@ -41,9 +43,15 @@ async def get_channels_status():
 
 @router.post("/channels/test")
 async def send_test_channel_message(req: TestChannelMessageRequest):
-    if req.channel == "zalocrm":
-        res = await zalocrm_adapter.send_response(recipient_id=req.recipient_id, message_text=req.text)
-        return {"success": res.get("success", False), "result": res}
+    # If recipient is empty or placeholder 'demo_recipient', fallback to OWNER_ZALO_ID
+    recipient = (
+        req.recipient_id
+        if req.recipient_id and req.recipient_id not in ("demo_recipient", "string", "")
+        else settings.OWNER_ZALO_ID
+    )
+    if req.channel in ("zalocrm", "zalo"):
+        res = await zalocrm_adapter.send_message(recipient_id=recipient, text=req.text)
+        return {"success": res.success, "recipient_id": recipient, "message_id": res.message_id, "error": res.error}
     else:
-        res = await mock_adapter.send_message(recipient_id=req.recipient_id, text=req.text)
-        return {"success": res.success, "message_id": res.message_id, "error": res.error}
+        res = await mock_adapter.send_message(recipient_id=recipient, text=req.text)
+        return {"success": res.success, "recipient_id": recipient, "message_id": res.message_id, "error": res.error}

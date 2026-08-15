@@ -152,24 +152,39 @@ class HermesService:
 
             if has_live_creds:
                 # Run through official Hermes Agent runtime
-                def on_tool_start(tool_name, tool_args):
-                    logger.info(f"[{correlation_id}] Hermes Tool Start: {tool_name} with args {tool_args}")
+                def on_tool_start(*args, **kwargs):
+                    logger.info(f"[{correlation_id}] Hermes Tool Start: {args}")
 
-                def on_tool_complete(tool_name, tool_args, tool_result, duration_ms=0):
+                def on_tool_complete(*args, **kwargs):
+                    tool_name = "hermes_tool"
+                    tool_args = {}
+                    tool_result = {}
+                    if len(args) >= 4:
+                        tool_name = args[1]
+                        tool_args = args[2]
+                        tool_result = args[3]
+                    elif len(args) == 3:
+                        tool_name = args[0]
+                        tool_args = args[1]
+                        tool_result = args[2]
+                    elif len(args) == 2:
+                        tool_name = args[0]
+                        tool_result = args[1]
+
                     tool_traces.append({
                         "iteration": len(tool_traces) + 1,
-                        "tool_name": tool_name,
-                        "arguments": tool_args,
-                        "result": tool_result,
+                        "tool_name": str(tool_name),
+                        "arguments": tool_args if isinstance(tool_args, (dict, list, str, int, float, bool)) else str(tool_args),
+                        "result": tool_result if isinstance(tool_result, (dict, list, str, int, float, bool)) else str(tool_result),
                         "status": "SUCCESS",
-                        "duration_ms": duration_ms or 50,
+                        "duration_ms": 50.0,
                     })
 
                 agent.tool_start_callback = on_tool_start
                 agent.tool_complete_callback = on_tool_complete
 
                 response = agent.run_conversation(user_message=incoming_text)
-                final_answer = response.get("response") or response.get("text") or str(response)
+                final_answer = response.get("final_response") or response.get("response") or response.get("text") or str(response)
                 iteration_count = max(1, len(tool_traces))
             else:
                 # Deterministic Hermes Engine Execution (offline demo mode)
@@ -190,6 +205,12 @@ class HermesService:
         # Store tool executions and update AgentRun in DB
         async with AsyncSessionLocal() as session:
             for tt in tool_traces:
+                dur = tt.get("duration_ms", 50.0)
+                try:
+                    dur_float = float(dur)
+                except Exception:
+                    dur_float = 50.0
+
                 tool_exec = ToolExecution(
                     agent_run_id=agent_run_id,
                     iteration=tt.get("iteration", 1),
@@ -197,7 +218,7 @@ class HermesService:
                     arguments_json=tt.get("arguments"),
                     result_json=tt.get("result"),
                     status=tt.get("status", "SUCCESS"),
-                    duration_ms=tt.get("duration_ms", 50.0),
+                    duration_ms=dur_float,
                 )
                 session.add(tool_exec)
 

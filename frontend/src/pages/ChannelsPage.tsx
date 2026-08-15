@@ -5,7 +5,7 @@ import { ChannelInfo } from '../types';
 
 export const ChannelsPage: React.FC = () => {
   const [channels, setChannels] = useState<ChannelInfo[]>([]);
-  const [testRecipient, setTestRecipient] = useState('demo_recipient');
+  const [testRecipient, setTestRecipient] = useState('3914118581873674309');
   const [testText, setTestText] = useState('Tin nhắn kiểm tra kết nối từ Dashboard.');
   const [testResult, setTestResult] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);

@@ -276,15 +276,13 @@ export async function publicApiRoutes(app: FastifyInstance): Promise<void> {
         return reply.status(422).send({ error: 'Zalo account is not connected' });
       }
 
-      // Dynamically import zaloPool to avoid circular deps
-      const { zaloPool } = await import('../zalo/zalo-pool.js');
-      const api = zaloPool.getApi(body.zaloAccountId);
-      if (!api) return reply.status(422).send({ error: 'Zalo account not active in pool' });
-
+      // Use zaloOps.sendMessage for robust error handling and execution
+      const { zaloOps } = await import('../../shared/zalo-operations.js');
       const threadType = body.threadType === 'group' ? 1 : 0;
-      await api.sendMessage(body.content, body.threadId, threadType);
+      const sendPayload = typeof body.content === 'string' ? { msg: body.content } : body.content;
+      const result = await zaloOps.sendMessage(body.zaloAccountId, body.threadId, threadType, sendPayload);
 
-      return { success: true };
+      return { success: true, result };
     } catch (err) {
       logger.error('[public-api] POST /messages/send error:', err);
       return reply.status(500).send({ error: 'Failed to send message' });

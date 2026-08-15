@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Settings as SettingsIcon, Save, ShieldCheck, Cpu, Key } from 'lucide-react';
+import { Settings as SettingsIcon, Save, ShieldCheck, Cpu, Sliders } from 'lucide-react';
 import { api } from '../services/api';
 import { SystemSettings } from '../types';
 
@@ -145,6 +145,52 @@ export const SettingsPage: React.FC = () => {
                 onChange={(e) => setSettings({ ...settings, gemini_model: e.target.value })}
                 style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', padding: '0.65rem', borderRadius: '8px', color: '#fff' }}
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Agent Execution & Loop Parameters */}
+        <div className="glass-panel" style={{ padding: '1.75rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Sliders size={20} color="#34d399" />
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>
+              Tham số Vòng lặp Agent (Agent Execution Parameters)
+            </h3>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.35rem' }}>
+                Số vòng lặp suy luận tối đa (Max Agent Iterations):
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                value={settings.max_agent_iterations || 8}
+                onChange={(e) => setSettings({ ...settings, max_agent_iterations: parseInt(e.target.value, 10) || 8 })}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', padding: '0.65rem', borderRadius: '8px', color: '#fff' }}
+              />
+              <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.25rem', display: 'block' }}>
+                Giới hạn số bước ReAct suy luận / gọi tool liên tiếp trong một câu hỏi (mặc định: 8).
+              </span>
+            </div>
+
+            <div>
+              <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.35rem' }}>
+                Giới hạn bộ nhớ ngắn hạn (Short-term Memory Limit):
+              </label>
+              <input
+                type="number"
+                min={5}
+                max={100}
+                value={settings.short_term_memory_limit || 20}
+                onChange={(e) => setSettings({ ...settings, short_term_memory_limit: parseInt(e.target.value, 10) || 20 })}
+                style={{ width: '100%', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', padding: '0.65rem', borderRadius: '8px', color: '#fff' }}
+              />
+              <span style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.25rem', display: 'block' }}>
+                Số tin nhắn gần nhất được nạp vào ngữ cảnh của phiên hội thoại (mặc định: 20).
+              </span>
             </div>
           </div>
         </div>

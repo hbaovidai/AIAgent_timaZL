@@ -17,6 +17,8 @@ class UpdateSettingsRequest(BaseModel):
     openai_model: str | None = None
     gemini_model: str | None = None
     openrouter_model: str | None = None
+    max_agent_iterations: int | None = None
+    short_term_memory_limit: int | None = None
 
 
 @router.get("/settings")
@@ -34,10 +36,8 @@ async def get_settings():
             "openai_model": db_settings.get("openai_model", settings.OPENAI_MODEL),
             "gemini_model": db_settings.get("gemini_model", settings.GEMINI_MODEL),
             "openrouter_model": db_settings.get("openrouter_model", settings.OPENROUTER_MODEL),
-            "max_agent_iterations": settings.MAX_AGENT_ITERATIONS,
-            "short_term_memory_limit": settings.SHORT_TERM_MEMORY_LIMIT,
-            "zalo_app_id": settings.ZALO_APP_ID or "Chưa cấu hình",
-            "zalo_oa_id": settings.ZALO_OA_ID or "Chưa cấu hình",
+            "max_agent_iterations": db_settings.get("max_agent_iterations", settings.MAX_AGENT_ITERATIONS),
+            "short_term_memory_limit": db_settings.get("short_term_memory_limit", settings.SHORT_TERM_MEMORY_LIMIT),
         }
 
 
