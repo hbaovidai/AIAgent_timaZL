@@ -257,8 +257,11 @@ class HermesService:
 
                 # Sync memory items to Memory table for dashboard visibility
                 if t_name == "memory":
+                    act = t_args.get("action", "add") if isinstance(t_args, dict) else "add"
                     content = t_args.get("content") if isinstance(t_args, dict) else None
-                    if content:
+                    if act == "clear":
+                        await session.execute(delete(Memory).where(Memory.user_id == user.id))
+                    elif act == "add" and content:
                         m_obj = Memory(
                             id=str(uuid.uuid4()),
                             user_id=user.id,
@@ -268,6 +271,20 @@ class HermesService:
                             created_at=datetime.utcnow(),
                         )
                         session.add(m_obj)
+
+                # Sync note items to Note table for dashboard visibility
+                if t_name in ("note", "write_file"):
+                    title = t_args.get("title") or t_args.get("path") or "Ghi chú từ Agent"
+                    content = t_args.get("content") or str(t_res)
+                    if content and len(str(content)) > 5:
+                        n_obj = Note(
+                            id=str(uuid.uuid4()),
+                            user_id=user.id,
+                            title=str(title),
+                            content=str(content),
+                            created_at=datetime.utcnow(),
+                        )
+                        session.add(n_obj)
 
             stmt = select(AgentRun).where(AgentRun.id == agent_run_id)
             res = await session.execute(stmt)
