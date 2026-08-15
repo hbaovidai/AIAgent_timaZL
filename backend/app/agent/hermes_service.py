@@ -202,7 +202,7 @@ class HermesService:
 
         total_duration = round((time.time() - start_time) * 1000, 2)
 
-        # Store tool executions and update AgentRun in DB
+        # Store tool executions and sync tasks/memories in DB
         async with AsyncSessionLocal() as session:
             for tt in tool_traces:
                 dur = tt.get("duration_ms", 50.0)
@@ -211,16 +211,55 @@ class HermesService:
                 except Exception:
                     dur_float = 50.0
 
+                t_name = str(tt.get("tool_name", "hermes_tool"))
+                t_args = tt.get("arguments") or {}
+                t_res = tt.get("result") or {}
+
                 tool_exec = ToolExecution(
                     agent_run_id=agent_run_id,
                     iteration=tt.get("iteration", 1),
-                    tool_name=tt.get("tool_name", "hermes_tool"),
-                    arguments_json=tt.get("arguments"),
-                    result_json=tt.get("result"),
+                    tool_name=t_name,
+                    arguments_json=t_args,
+                    result_json=t_res,
                     status=tt.get("status", "SUCCESS"),
                     duration_ms=dur_float,
                 )
                 session.add(tool_exec)
+
+                # Sync todo items to Task table for dashboard visibility
+                if t_name == "todo":
+                    import json
+                    raw_todos = t_args.get("todos") if isinstance(t_args, dict) else None
+                    if isinstance(raw_todos, str):
+                        try:
+                            raw_todos = json.loads(raw_todos)
+                        except Exception:
+                            pass
+                    if isinstance(raw_todos, list):
+                        for item in raw_todos:
+                            if isinstance(item, dict) and item.get("content"):
+                                t_obj = Task(
+                                    id=str(uuid.uuid4()),
+                                    user_id=user.id,
+                                    title=item.get("content"),
+                                    status=TaskStatus.PENDING.value,
+                                    created_at=datetime.utcnow(),
+                                )
+                                session.add(t_obj)
+
+                # Sync memory items to Memory table for dashboard visibility
+                if t_name == "memory":
+                    content = t_args.get("content") if isinstance(t_args, dict) else None
+                    if content:
+                        m_obj = Memory(
+                            id=str(uuid.uuid4()),
+                            user_id=user.id,
+                            category=MemoryCategory.PROJECT.value if user.role == UserRole.OWNER.value else MemoryCategory.FACT.value,
+                            content=str(content),
+                            importance=5 if user.role == UserRole.OWNER.value else 3,
+                            created_at=datetime.utcnow(),
+                        )
+                        session.add(m_obj)
 
             stmt = select(AgentRun).where(AgentRun.id == agent_run_id)
             res = await session.execute(stmt)
