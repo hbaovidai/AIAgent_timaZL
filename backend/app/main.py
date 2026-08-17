@@ -18,7 +18,9 @@ from app.api.routes import (
     channels,
     settings as settings_route,
     stats,
+    scheduler,
 )
+from app.scheduler.service import scheduler_service
 
 # Setup logging
 logging.basicConfig(
@@ -34,7 +36,9 @@ async def lifespan(app: FastAPI):
     await init_db()
     logger.info("Database schemas initialized.")
     logger.info(f"AI Agent backend started. Active LLM Provider: {settings.LLM_PROVIDER}")
+    scheduler_service.start()
     yield
+    scheduler_service.shutdown()
     logger.info("AI Agent backend shutting down.")
 
 
@@ -68,6 +72,7 @@ app.include_router(users.router, prefix="/api", tags=["Users"])
 app.include_router(channels.router, prefix="/api", tags=["Channels"])
 app.include_router(settings_route.router, prefix="/api", tags=["Settings"])
 app.include_router(stats.router, prefix="/api", tags=["Stats"])
+app.include_router(scheduler.router, prefix="/api", tags=["Scheduler"])
 
 
 if __name__ == "__main__":

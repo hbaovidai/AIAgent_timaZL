@@ -142,4 +142,20 @@ export const api = {
   updateSettings: async (data: Partial<SystemSettings>): Promise<void> => {
     await axios.put(`${API_BASE}/settings`, data);
   },
+
+  // Proactive Scheduler & Reminders
+  getScheduledJobs: async (): Promise<any> => {
+    const res = await axios.get(`${API_BASE}/scheduler/jobs`);
+    return res.data;
+  },
+
+  triggerMorningBriefing: async (recipientId?: string): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/scheduler/morning-briefing`, { recipient_id: recipientId });
+    return res.data;
+  },
+
+  sendProactiveReminder: async (title: string, text: string, recipientId?: string): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/scheduler/reminders`, { title, text, recipient_id: recipientId });
+    return res.data;
+  },
 };
