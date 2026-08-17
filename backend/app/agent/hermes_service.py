@@ -74,7 +74,11 @@ class HermesService:
             base_url = "https://openrouter.ai/api/v1"
         elif provider == "gemini":
             api_key = settings.GEMINI_API_KEY
-            model = settings.GEMINI_MODEL or "gemini-1.5-flash"
+            raw_model = settings.GEMINI_MODEL or "gemini-3.5-flash"
+            model = raw_model if raw_model.startswith("gemini/") else f"gemini/{raw_model}"
+            base_url = None
+            if api_key:
+                os.environ["GEMINI_API_KEY"] = api_key
         else:
             # Mock / Demo provider
             provider = "custom"
