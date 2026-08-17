@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Upload, FileText, Trash2, Search, CheckCircle, Database, Sparkles } from 'lucide-react';
+import { BookOpen, Upload, FileText, Trash2, Search, CheckCircle, Database, Sparkles, Eye, X, Layers } from 'lucide-react';
 import { api } from '../services/api';
 
 export const DocumentsPage: React.FC = () => {
@@ -20,6 +20,10 @@ export const DocumentsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any | null>(null);
   const [searching, setSearching] = useState(false);
+
+  // Document Detail Modal State
+  const [selectedDoc, setSelectedDoc] = useState<any | null>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const loadDocs = async () => {
     try {
@@ -73,9 +77,24 @@ export const DocumentsPage: React.FC = () => {
   const handleDeleteDoc = async (id: string) => {
     try {
       await api.deleteDocument(id);
+      if (selectedDoc && selectedDoc.id === id) {
+        setSelectedDoc(null);
+      }
       loadDocs();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleViewDoc = async (id: string) => {
+    try {
+      setLoadingDetail(true);
+      const detail = await api.getDocumentDetail(id);
+      setSelectedDoc(detail);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingDetail(false);
     }
   };
 
@@ -100,7 +119,7 @@ export const DocumentsPage: React.FC = () => {
           Kho Tri thức & Đọc hiểu Tài liệu (RAG / Vector Database)
         </h1>
         <p style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
-          Nạp tài liệu PDF, Markdown hoặc văn bản vào ChromaDB để Agent tự động tra cứu và trích dẫn chuẩn xác.
+          Nạp tài liệu PDF, Markdown hoặc văn bản vào ChromaDB để Agent tự động tra cứu, đọc hiểu và trích dẫn chuẩn xác.
         </p>
       </div>
 
@@ -306,18 +325,29 @@ export const DocumentsPage: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                onClick={() => handleDeleteDoc(doc.id)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#ef4444',
-                  cursor: 'pointer',
-                  padding: '0.5rem',
-                }}
-              >
-                <Trash2 size={16} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={() => handleViewDoc(doc.id)}
+                  className="btn btn-secondary"
+                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
+                >
+                  <Eye size={14} /> Xem nội dung
+                </button>
+
+                <button
+                  onClick={() => handleDeleteDoc(doc.id)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#ef4444',
+                    cursor: 'pointer',
+                    padding: '0.5rem',
+                  }}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
             </div>
           ))}
 
@@ -328,6 +358,95 @@ export const DocumentsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Document Detail Modal */}
+      {selectedDoc && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '1.5rem',
+          }}
+        >
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '850px',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              padding: '1.5rem',
+              borderRadius: '16px',
+              border: '1px solid rgba(255,255,255,0.15)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.75)',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '1rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <BookOpen size={22} color="#38bdf8" />
+                <div>
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fff' }}>{selectedDoc.filename}</h3>
+                  <p style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                    Tác giả: {selectedDoc.author} • Tổng số đoạn Vector (Chunks): {selectedDoc.total_chunks}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedDoc(null)}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '0.4rem' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body: Chunks & Full Text */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1rem', paddingRight: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#818cf8', fontWeight: 700, fontSize: '0.9rem' }}>
+                <Layers size={16} /> Các đoạn phân mảnh Vector trong ChromaDB ({selectedDoc.chunks?.length || 0}):
+              </div>
+
+              {selectedDoc.chunks && selectedDoc.chunks.map((chunk: any, i: number) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: '1rem',
+                    borderRadius: '8px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8' }}>
+                    <span>Đoạn Chunk #{chunk.chunk_index + 1}</span>
+                    <span style={{ color: '#64748b' }}>Độ dài: {chunk.content.length} ký tự</span>
+                  </div>
+                  <div style={{ fontSize: '0.85rem', color: '#e2e8f0', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                    {chunk.content}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem', marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setSelectedDoc(null)} className="btn btn-secondary">
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

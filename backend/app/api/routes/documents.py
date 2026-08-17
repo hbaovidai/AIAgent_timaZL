@@ -70,6 +70,15 @@ async def upload_document(file: UploadFile = File(...), author: str = Form("Hu�
     return res
 
 
+@router.get("/documents/{doc_id}")
+async def get_document(doc_id: str):
+    """Retrieve full content and chunks of a specific document."""
+    doc = rag_service.get_document_details(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Không tìm thấy tài liệu.")
+    return doc
+
+
 @router.delete("/documents/{doc_id}")
 async def delete_document(doc_id: str):
     """Delete a document from the RAG knowledge base."""

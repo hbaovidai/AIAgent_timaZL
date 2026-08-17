@@ -131,6 +131,40 @@ class RAGService:
 
         return list(doc_map.values())
 
+    def get_document_details(self, doc_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves full content and all chunks of a specific document."""
+        if self.collection.count() == 0:
+            return None
+        res = self.collection.get(where={"doc_id": doc_id})
+        docs = res.get("documents", [])
+        metas = res.get("metadatas", [])
+        if not docs:
+            return None
+
+        indexed_chunks = []
+        filename = "Tài liệu"
+        author = "Huỳnh Bảo"
+        for doc, meta in zip(docs, metas):
+            if meta:
+                filename = meta.get("filename", filename)
+                author = meta.get("author", author)
+                indexed_chunks.append({
+                    "chunk_index": meta.get("chunk_index", 0),
+                    "content": doc,
+                })
+
+        indexed_chunks.sort(key=lambda x: x["chunk_index"])
+        full_text = "\n\n".join([c["content"] for c in indexed_chunks])
+
+        return {
+            "id": doc_id,
+            "filename": filename,
+            "author": author,
+            "total_chunks": len(indexed_chunks),
+            "full_text": full_text,
+            "chunks": indexed_chunks,
+        }
+
     def delete_document(self, doc_id: str) -> bool:
         """Deletes all chunks belonging to a document."""
         try:

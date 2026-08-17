@@ -165,6 +165,11 @@ export const api = {
     return res.data;
   },
 
+  getDocumentDetail: async (id: string): Promise<any> => {
+    const res = await axios.get(`${API_BASE}/documents/${id}`);
+    return res.data;
+  },
+
   uploadDocument: async (file: File, author = 'Huỳnh Bảo'): Promise<any> => {
     const formData = new FormData();
     formData.append('file', file);
