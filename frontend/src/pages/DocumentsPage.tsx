@@ -313,14 +313,35 @@ export const DocumentsPage: React.FC = () => {
                 borderRadius: '8px',
                 background: 'rgba(255,255,255,0.02)',
                 border: '1px solid rgba(255,255,255,0.06)',
+                transition: 'all 0.2s ease',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div
+                onClick={() => handleViewDoc(doc.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  cursor: 'pointer',
+                  flex: 1,
+                }}
+              >
                 <BookOpen size={20} color="#38bdf8" />
                 <div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#fff' }}>{doc.filename}</div>
+                  <div
+                    style={{
+                      fontSize: '0.95rem',
+                      fontWeight: 600,
+                      color: '#fff',
+                      transition: 'color 0.2s ease',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#38bdf8')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = '#fff')}
+                  >
+                    {doc.filename}
+                  </div>
                   <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.2rem' }}>
-                    Tác giả: {doc.author} • Số đoạn Vector: {doc.total_chunks} đoạn
+                    Tác giả: {doc.author} • Số đoạn Vector: {doc.total_chunks} đoạn • <span style={{ color: '#818cf8' }}>Nhấn để xem chi tiết</span>
                   </div>
                 </div>
               </div>
@@ -328,14 +349,7 @@ export const DocumentsPage: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <button
                   type="button"
-                  onClick={() => handleViewDoc(doc.id)}
-                  className="btn btn-secondary"
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', padding: '0.4rem 0.8rem' }}
-                >
-                  <Eye size={14} /> Xem nội dung
-                </button>
-
-                <button
+                  title="Xóa tài liệu"
                   onClick={() => handleDeleteDoc(doc.id)}
                   style={{
                     background: 'transparent',
