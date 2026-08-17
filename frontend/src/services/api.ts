@@ -158,4 +158,35 @@ export const api = {
     const res = await axios.post(`${API_BASE}/scheduler/reminders`, { title, text, recipient_id: recipientId });
     return res.data;
   },
+
+  // RAG & Documents
+  getDocuments: async (): Promise<any> => {
+    const res = await axios.get(`${API_BASE}/documents`);
+    return res.data;
+  },
+
+  uploadDocument: async (file: File, author = 'Huỳnh Bảo'): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('author', author);
+    const res = await axios.post(`${API_BASE}/documents/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
+
+  addTextDocument: async (filename: string, content: string, author = 'Huỳnh Bảo'): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/documents/text`, { filename, content, author });
+    return res.data;
+  },
+
+  deleteDocument: async (id: string): Promise<any> => {
+    const res = await axios.delete(`${API_BASE}/documents/${id}`);
+    return res.data;
+  },
+
+  searchKnowledge: async (query: string, nResults = 3): Promise<any> => {
+    const res = await axios.post(`${API_BASE}/documents/search`, { query, n_results: nResults });
+    return res.data;
+  },
 };

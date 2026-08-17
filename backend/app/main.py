@@ -19,6 +19,7 @@ from app.api.routes import (
     settings as settings_route,
     stats,
     scheduler,
+    documents,
 )
 from app.scheduler.service import scheduler_service
 
@@ -73,6 +74,7 @@ app.include_router(channels.router, prefix="/api", tags=["Channels"])
 app.include_router(settings_route.router, prefix="/api", tags=["Settings"])
 app.include_router(stats.router, prefix="/api", tags=["Stats"])
 app.include_router(scheduler.router, prefix="/api", tags=["Scheduler"])
+app.include_router(documents.router, prefix="/api", tags=["Documents"])
 
 
 if __name__ == "__main__":

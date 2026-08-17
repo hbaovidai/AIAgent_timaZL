@@ -24,6 +24,7 @@ from app.models.user import User, UserRole
 from app.models.task import Task, TaskStatus
 from app.models.note import Note
 from app.models.memory import Memory, MemoryCategory
+from app.knowledge.rag_service import rag_service
 from sqlalchemy import select, delete
 
 logger = logging.getLogger("hermes")
@@ -157,6 +158,23 @@ class HermesService:
 
         try:
             agent = self._get_or_create_agent(session_key, user)
+
+            # Dynamic RAG Knowledge Base injection
+            try:
+                if rag_service.collection.count() > 0:
+                    rag_res = rag_service.query(incoming_text, n_results=2)
+                    if rag_res.get("results"):
+                        rag_context = (
+                            f"\n\n[KNOWLEDGE BASE DOCUMENTS REFERENCE]:\n"
+                            f"{rag_res.get('formatted_context')}\n"
+                            f"Use the above factual excerpts from uploaded documents to answer accurately with citation if applicable."
+                        )
+                        base_prompt = getattr(agent, "ephemeral_system_prompt", "") or ""
+                        if "[KNOWLEDGE BASE DOCUMENTS REFERENCE]:" in base_prompt:
+                            base_prompt = base_prompt.split("[KNOWLEDGE BASE DOCUMENTS REFERENCE]:")[0].strip()
+                        agent.ephemeral_system_prompt = base_prompt + rag_context
+            except Exception as e:
+                logger.warning(f"RAG query lookup failed: {e}")
 
             if has_live_creds:
                 # Run through official Hermes Agent runtime

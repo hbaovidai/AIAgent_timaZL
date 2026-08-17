@@ -11,6 +11,7 @@ import { ToolsPage } from './pages/ToolsPage';
 import { ChannelsPage } from './pages/ChannelsPage';
 import { UsersPage } from './pages/UsersPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { DocumentsPage } from './pages/DocumentsPage';
 
 export const App: React.FC = () => {
   return (
@@ -20,6 +21,7 @@ export const App: React.FC = () => {
           <Route index element={<Dashboard />} />
           <Route path="demo-chat" element={<DemoChat />} />
           <Route path="agent-runs" element={<AgentRuns />} />
+          <Route path="documents" element={<DocumentsPage />} />
           <Route path="conversations" element={<Conversations />} />
           <Route path="memories" element={<MemoryPage />} />
           <Route path="tasks" element={<TasksPage />} />
