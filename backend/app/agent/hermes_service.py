@@ -7,6 +7,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
+# Enable built-in DuckDuckGo Web Search provider
+os.environ["WEB_SEARCH_PROVIDER"] = "ddgs"
+
 # Ensure vendor/hermes-agent is on sys.path
 hermes_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "vendor", "hermes-agent"))
 if hermes_path not in sys.path:
@@ -88,7 +91,8 @@ class HermesService:
             f"1. When the user asks to create/add tasks, use the `todo` tool to add items with concise titles.\n"
             f"2. When the user asks to complete, finish, mark done, or update a task (e.g. 'hoàn thành task', 'xong task', 'đã làm xong'): DO NOT create a new task named 'Hoàn thành task'. Instead, call `todo` to check current tasks, identify which task the user refers to, and update its status to 'completed'. If unclear which task, list current pending tasks and ask which one they want to complete.\n"
             f"3. When the user asks to save memories or preferences, use the `memory` tool.\n"
-            f"4. Always keep final responses natural, helpful, and concise for mobile Zalo delivery in Vietnamese."
+            f"4. When the user asks about current events, news, gold/stock/crypto prices, weather, sports, or real-time web info: ALWAYS use the `web_search` and `web_extract` tools to search the live internet and synthesize an accurate up-to-date answer.\n"
+            f"5. Always keep final responses natural, helpful, and concise for mobile Zalo delivery in Vietnamese."
         )
 
         agent = AIAgent(
