@@ -97,7 +97,12 @@ class HermesService:
             f"2. When the user asks to complete, finish, mark done, or update a task (e.g. 'hoàn thành task', 'xong task', 'đã làm xong'): DO NOT create a new task named 'Hoàn thành task'. Instead, call `todo` to check current tasks, identify which task the user refers to, and update its status to 'completed'. If unclear which task, list current pending tasks and ask which one they want to complete.\n"
             f"3. When the user asks to save memories or preferences, use the `memory` tool.\n"
             f"4. When the user asks about current events, news, gold/stock/crypto prices, weather, sports, or real-time web info: ALWAYS use the `web_search` and `web_extract` tools to search the live internet and synthesize an accurate up-to-date answer.\n"
-            f"5. Always keep final responses natural, helpful, and concise for mobile Zalo delivery in Vietnamese."
+            f"5. When the owner asks to assign, delegate, or distribute project tasks to team members (e.g. 'giao task cho A, B', 'chia việc cho team', 'nhắn tin phân công', 'gửi tin nhắn giao việc'):\n"
+            f"   - Check team directory with `get_team_directory`.\n"
+            f"   - Autonomously call `send_zalo_message` for EACH assigned member with clear, customized task instructions.\n"
+            f"   - Call `todo` to record all newly created tasks in the system.\n"
+            f"   - Provide a final structured report to the owner summarizing what was delegated and dispatched.\n"
+            f"6. Always keep final responses natural, helpful, and concise for mobile Zalo delivery in Vietnamese."
         )
 
         agent = AIAgent(
