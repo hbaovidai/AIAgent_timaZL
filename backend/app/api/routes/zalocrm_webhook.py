@@ -61,14 +61,21 @@ async def handle_zalocrm_webhook(
     if result.get("duplicate"):
         return {"status": "duplicate", "message_id": normalized.message_id}
 
-    # 4. Dispatch Hermes response back to Zalo user via ZaloCRM REST API
+    # 4. Dispatch Hermes response back to Zalo user/group via ZaloCRM REST API
     final_response = result.get("response", "")
     if final_response:
+        data_payload = payload.get("data", {})
+        thread_type = data_payload.get("threadType", "user")
+        target_id = data_payload.get("conversationId") if thread_type == "group" else normalized.sender_id
+
         background_tasks.add_task(
             zalocrm_adapter.send_message,
-            recipient_id=normalized.sender_id,
+            recipient_id=target_id or normalized.sender_id,
             text=final_response,
-            metadata={"account_id": payload.get("data", {}).get("account_id")},
+            metadata={
+                "account_id": data_payload.get("account_id"),
+                "thread_type": thread_type,
+            },
         )
 
     return {
