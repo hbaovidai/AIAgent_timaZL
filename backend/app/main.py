@@ -20,6 +20,7 @@ from app.api.routes import (
     stats,
     scheduler,
     documents,
+    n8n_routes,
 )
 from app.scheduler.service import scheduler_service
 
@@ -75,6 +76,7 @@ app.include_router(settings_route.router, prefix="/api", tags=["Settings"])
 app.include_router(stats.router, prefix="/api", tags=["Stats"])
 app.include_router(scheduler.router, prefix="/api", tags=["Scheduler"])
 app.include_router(documents.router, prefix="/api", tags=["Documents"])
+app.include_router(n8n_routes.router, tags=["n8n Automation"])
 
 
 if __name__ == "__main__":

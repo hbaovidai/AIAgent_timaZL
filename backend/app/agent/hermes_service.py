@@ -102,7 +102,8 @@ class HermesService:
             f"   - Autonomously call `send_zalo_message` for EACH assigned member with clear, customized task instructions.\n"
             f"   - Call `todo` to record all newly created tasks in the system.\n"
             f"   - Provide a final structured report to the owner summarizing what was delegated and dispatched.\n"
-            f"6. Always keep final responses natural, helpful, and concise for mobile Zalo delivery in Vietnamese."
+            f"6. When the user asks to send an email, write to Google Sheets, update Notion, or trigger external integrations: Use the `trigger_n8n_workflow` tool with the appropriate workflow slug (e.g. 'send-email', 'sync-google-sheets', 'create-notion-task') and payload.\n"
+            f"7. Always keep final responses natural, helpful, and concise for mobile Zalo delivery in Vietnamese."
         )
 
         agent = AIAgent(
