@@ -23,9 +23,9 @@ from app.models.tool_execution import ToolExecution
 from app.models.user import User, UserRole
 from app.models.task import Task, TaskStatus
 from app.models.note import Note
-from app.models.memory import Memory, MemoryCategory
+from app.models.message import Message
 from app.knowledge.rag_service import rag_service
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, desc
 
 logger = logging.getLogger("hermes")
 
@@ -41,11 +41,36 @@ class HermesExecutionResult(BaseModel):
     error_message: Optional[str] = None
 
 
+class GeminiKeyPool:
+    def __init__(self):
+        raw_keys = os.environ.get("GEMINI_API_KEYS", "") or settings.GEMINI_API_KEY or ""
+        self.keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
+        self.current_idx = 0
+        if not self.keys and settings.GEMINI_API_KEY:
+            self.keys = [settings.GEMINI_API_KEY.strip()]
+
+    def get_current_key(self) -> str:
+        if not self.keys:
+            return ""
+        return self.keys[self.current_idx % len(self.keys)]
+
+    def rotate_next(self) -> str:
+        if not self.keys or len(self.keys) <= 1:
+            return self.get_current_key()
+        self.current_idx = (self.current_idx + 1) % len(self.keys)
+        next_key = self.keys[self.current_idx]
+        os.environ["GEMINI_API_KEY"] = next_key
+        logger.info(f"[GeminiKeyPool] Rotated to Key #{self.current_idx + 1}/{len(self.keys)}: {next_key[:8]}...{next_key[-4:]}")
+        return next_key
+
+
+gemini_key_pool = GeminiKeyPool()
+
+
 class HermesService:
     """
-    Integration layer for official Hermes Agent (Nous Research).
-    Manages AIAgent instances per session, collects observable trace callbacks,
-    enforces RBAC permissions, and provides multi-turn persistent conversation.
+    Singleton bridge to the official Nous Research Hermes Agent.
+    Manages user sessions, tool executions, and SQLite synchronization.
     """
 
     def __init__(self):
@@ -73,8 +98,8 @@ class HermesService:
             model = settings.OPENROUTER_MODEL or "nousresearch/hermes-3-llama-3.1-405b"
             base_url = "https://openrouter.ai/api/v1"
         elif provider == "gemini":
-            api_key = settings.GEMINI_API_KEY
-            raw_model = settings.GEMINI_MODEL or "gemini-3.5-flash"
+            api_key = gemini_key_pool.get_current_key()
+            raw_model = settings.GEMINI_MODEL or "gemini-3.6-flash"
             model = raw_model if raw_model.startswith("gemini/") else f"gemini/{raw_model}"
             base_url = None
             if api_key:
@@ -169,8 +194,36 @@ class HermesService:
         try:
             agent = self._get_or_create_agent(session_key, user)
 
+            # Fetch recent conversation history from DB for persistent memory
+            history_context = ""
+            try:
+                async with AsyncSessionLocal() as db_session:
+                    stmt = (
+                        select(Message)
+                        .where(Message.conversation_id == conversation_id)
+                        .order_by(desc(Message.created_at))
+                        .limit(15)
+                    )
+                    res = await db_session.execute(stmt)
+                    db_msgs = list(reversed(res.scalars().all()))
+                    if len(db_msgs) > 1:
+                        history_lines = []
+                        for m in db_msgs[:-1]:  # Exclude current incoming message
+                            sender_label = user.display_name if m.role == "user" else "Assistant"
+                            time_str = m.created_at.strftime("%d/%m/%Y %H:%M") if m.created_at else ""
+                            history_lines.append(f"[{time_str}] {sender_label}: {m.content}")
+                        if history_lines:
+                            history_context = (
+                                f"\n\n[RECENT CHAT HISTORY & PAST CONVERSATION CONTEXT]:\n"
+                                + "\n".join(history_lines)
+                                + "\nUse the above past chat history to recall prior discussions, appointments, interviews, decisions, or requests."
+                            )
+            except Exception as e:
+                logger.warning(f"Failed to fetch conversation history: {e}")
+
             # Dynamic RAG Knowledge Base injection
             try:
+                rag_context = ""
                 if rag_service.collection.count() > 0:
                     rag_res = rag_service.query(incoming_text, n_results=2)
                     if rag_res.get("results"):
@@ -179,10 +232,12 @@ class HermesService:
                             f"{rag_res.get('formatted_context')}\n"
                             f"Use the above factual excerpts from uploaded documents to answer accurately with citation if applicable."
                         )
-                        base_prompt = getattr(agent, "ephemeral_system_prompt", "") or ""
-                        if "[KNOWLEDGE BASE DOCUMENTS REFERENCE]:" in base_prompt:
-                            base_prompt = base_prompt.split("[KNOWLEDGE BASE DOCUMENTS REFERENCE]:")[0].strip()
-                        agent.ephemeral_system_prompt = base_prompt + rag_context
+                base_prompt = getattr(agent, "ephemeral_system_prompt", "") or ""
+                if "[KNOWLEDGE BASE DOCUMENTS REFERENCE]:" in base_prompt:
+                    base_prompt = base_prompt.split("[KNOWLEDGE BASE DOCUMENTS REFERENCE]:")[0].strip()
+                if "[RECENT CHAT HISTORY & PAST CONVERSATION CONTEXT]:" in base_prompt:
+                    base_prompt = base_prompt.split("[RECENT CHAT HISTORY & PAST CONVERSATION CONTEXT]:")[0].strip()
+                agent.ephemeral_system_prompt = base_prompt + rag_context + history_context
             except Exception as e:
                 logger.warning(f"RAG query lookup failed: {e}")
 
@@ -219,8 +274,29 @@ class HermesService:
                 agent.tool_start_callback = on_tool_start
                 agent.tool_complete_callback = on_tool_complete
 
-                response = agent.run_conversation(user_message=incoming_text)
-                final_answer = response.get("final_response") or response.get("response") or response.get("text") or str(response)
+                # Robust Adaptive Retry & Instant Key Rotation for Rate Limits
+                max_retries = len(gemini_key_pool.keys) * 2 if gemini_key_pool.keys else 3
+                for attempt in range(max_retries):
+                    try:
+                        response = agent.run_conversation(user_message=incoming_text)
+                        final_answer = response.get("final_response") or response.get("response") or response.get("text") or str(response)
+
+                        if ("RESOURCE_EXHAUSTED" in final_answer or "HTTP 429" in final_answer) and attempt < max_retries - 1:
+                            next_key = gemini_key_pool.rotate_next()
+                            agent.api_key = next_key
+                            logger.info(f"[{correlation_id}] Rate limit encountered. Auto-rotated to Key #{gemini_key_pool.current_idx + 1} and retrying immediately...")
+                            time.sleep(1.0)
+                            continue
+                        break
+                    except Exception as e:
+                        if ("RESOURCE_EXHAUSTED" in str(e) or "429" in str(e)) and attempt < max_retries - 1:
+                            next_key = gemini_key_pool.rotate_next()
+                            agent.api_key = next_key
+                            logger.info(f"[{correlation_id}] Rate limit exception. Auto-rotated to Key #{gemini_key_pool.current_idx + 1} and retrying...")
+                            time.sleep(1.0)
+                            continue
+                        raise e
+
                 iteration_count = max(1, len(tool_traces))
             else:
                 # Deterministic Hermes Engine Execution (offline demo mode)
