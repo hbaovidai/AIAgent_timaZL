@@ -66,6 +66,32 @@ class ZaloCRMClient:
             logger.error(f"[ZaloCRM] Exception sending message to {recipient_id}: {str(e)}")
             return {"success": False, "error": str(e)}
 
+    async def accept_friend_request(
+        self,
+        sender_uid: str,
+        account_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Accepts an incoming friend request via ZaloCRM API:
+        POST /api/public/friends/accept
+        """
+        zalo_acc_id = account_id or settings.ZALOCRM_DEFAULT_ACCOUNT_ID
+        payload = {
+            "zaloAccountId": zalo_acc_id,
+            "friendUid": sender_uid,
+        }
+        url = f"{self.base_url}/api/public/friends/accept"
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                res = await client.post(url, json=payload, headers=self._get_headers())
+                if res.status_code == 200:
+                    logger.info(f"[ZaloCRM] Auto-accepted friend request from {sender_uid}")
+                    return res.json()
+                return {"success": False, "status_code": res.status_code, "error": res.text}
+        except Exception as e:
+            logger.warning(f"[ZaloCRM] Exception accepting friend request: {e}")
+            return {"success": False, "error": str(e)}
+
     async def get_connection_status(self) -> Dict[str, Any]:
         """
         Checks ZaloCRM Gateway health & connection status.

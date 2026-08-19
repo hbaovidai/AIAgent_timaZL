@@ -35,10 +35,56 @@ async def handle_zalocrm_webhook(
         logger.error(f"[ZaloCRM Webhook] Malformed JSON payload: {e}")
         raise HTTPException(status_code=400, detail="Invalid JSON body")
 
-    event_type = payload.get("event") or x_webhook_event
+    event_type = str(payload.get("event") or x_webhook_event or "").lower()
     logger.info(f"[ZaloCRM Webhook] Received event: {event_type}")
 
-    # Ignore non-message events
+    # 1. Feature: Auto Welcome New Group Members
+    if "group.member_joined" in event_type or "group.join" in event_type or "group.member_added" in event_type:
+        data = payload.get("data", {})
+        group_id = data.get("conversationId") or data.get("groupId")
+        member_name = data.get("memberName") or data.get("userName") or "bạn mới"
+        group_title = data.get("groupName") or data.get("groupTitle") or "nhóm"
+
+        welcome_text = (
+            f"🎉 [CHÀO MỪNG THÀNH VIÊN MỚI]\n"
+            f"Chào mừng {member_name} đã tham gia {group_title}! 👋\n\n"
+            f"Mình là Tima AI Agent - Trợ lý số 24/7 của anh Huỳnh Bảo. Chúc bạn một ngày làm việc hiệu quả!\n"
+            f"💡 Nếu bạn cần tra cứu tài liệu đồ án, cập nhật tiến độ hay giao task, cứ tag @Tima nhé! 🚀"
+        )
+        if group_id:
+            background_tasks.add_task(
+                zalocrm_adapter.send_message,
+                recipient_id=group_id,
+                text=welcome_text,
+                metadata={"account_id": data.get("account_id"), "thread_type": "group"},
+            )
+        return {"status": "welcomed_group_member", "member": member_name, "group_id": group_id}
+
+    # 2. Feature: Auto Accept Friend Requests & Welcome New Connections
+    if "friend_request" in event_type or "friend.request" in event_type:
+        data = payload.get("data", {})
+        sender_uid = str(data.get("senderUid") or data.get("userUid") or data.get("friendUid") or "")
+        sender_name = data.get("senderName") or data.get("userName") or "bạn"
+
+        if sender_uid:
+            from app.channels.zalocrm.client import zalocrm_client
+            # Auto accept friend request
+            background_tasks.add_task(zalocrm_client.accept_friend_request, sender_uid=sender_uid)
+
+            # Send welcome greeting
+            friend_welcome_text = (
+                f"👋 Chào {sender_name}! Mình là Tima AI Agent - Trợ lý số 24/7 của anh Huỳnh Bảo.\n\n"
+                f"Rất vui được kết nối với bạn trên Zalo! Mình có thể hỗ trợ bạn ghi nhận công việc, lưu lịch hẹn và tra cứu thông tin nhanh chóng. Bạn cần hỗ trợ gì cứ nhắn cho mình nhé! ✨"
+            )
+            background_tasks.add_task(
+                zalocrm_adapter.send_message,
+                recipient_id=sender_uid,
+                text=friend_welcome_text,
+                metadata={"account_id": data.get("account_id"), "thread_type": "user"},
+            )
+        return {"status": "auto_accepted_friend", "sender_uid": sender_uid, "sender_name": sender_name}
+
+    # Ignore other non-message events
     if event_type != "message.received":
         return {"status": "ignored", "event": event_type}
 
