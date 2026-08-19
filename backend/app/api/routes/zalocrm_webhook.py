@@ -90,6 +90,17 @@ async def handle_zalocrm_webhook(
 
     # 2. Normalize message
     normalized: NormalizedMessage = zalocrm_adapter.normalize_message(payload)
+    data_payload = payload.get("data", {})
+    content_type = str(data_payload.get("contentType") or data_payload.get("type") or "").lower()
+
+    # Voice Note / Audio Message Support
+    if "voice" in content_type or "audio" in content_type or data_payload.get("audioUrl") or data_payload.get("mediaUrl"):
+        from app.agent.transcription_service import transcription_service
+        audio_target = data_payload.get("audioUrl") or data_payload.get("mediaUrl") or normalized.text
+        transcribed_text = await transcription_service.transcribe_audio(audio_url_or_path=audio_target)
+        normalized.text = f"[🎙️ Tin nhắn thoại]: {transcribed_text}"
+        logger.info(f"[ZaloCRM Webhook] Voice note transcribed: '{normalized.text}'")
+
     if not normalized.text:
         return {"status": "ignored", "reason": "empty_content"}
 

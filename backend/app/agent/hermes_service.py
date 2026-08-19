@@ -128,7 +128,10 @@ class HermesService:
             f"   - Call `todo` to record all newly created tasks in the system.\n"
             f"   - Provide a final structured report to the owner summarizing what was delegated and dispatched.\n"
             f"6. When the user asks to send an email, write to Google Sheets, update Notion, or trigger external integrations: Use the `trigger_n8n_workflow` tool with the appropriate workflow slug (e.g. 'send-email', 'sync-google-sheets', 'create-notion-task') and payload.\n"
-            f"7. Always keep final responses natural, helpful, and concise for mobile Zalo delivery in Vietnamese."
+            f"7. When the user asks to create a new Zalo group chat (e.g. 'tạo nhóm chat Zalo', 'lập group Zalo', 'tạo nhóm dự án và add thành viên'): Use the `create_zalo_group` tool with group_name and member_names_or_ids.\n"
+            f"8. When the user asks to export or generate an Excel/CSV report or send a task report file (e.g. 'xuất báo cáo Excel', 'gửi file tiến độ qua Zalo', 'tạo file danh sách task'): Use the `export_and_send_report` tool with report_title.\n"
+            f"9. When the user asks to set a reminder or follow-up at a specific time (e.g. 'nhắc anh sau 10 giây', '15h30 chiều nay nhắc anh...', 'nhắc bạn Kiên nộp bài lúc 9h sáng mai'): Use the `schedule_smart_reminder` tool with reminder_content and remind_at.\n"
+            f"10. Always keep final responses natural, helpful, and concise for mobile Zalo delivery in Vietnamese."
         )
 
         agent = AIAgent(
