@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     ZALO_WEBHOOK_SECRET: Optional[str] = None
 
     # Agent Limits
-    MAX_AGENT_ITERATIONS: int = 8
+    MAX_AGENT_ITERATIONS: int = 15
     SHORT_TERM_MEMORY_LIMIT: int = 20
     EMBEDDING_DIMENSION: int = 1536
 

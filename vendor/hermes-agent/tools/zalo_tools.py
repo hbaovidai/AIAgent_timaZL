@@ -22,6 +22,8 @@ OWNER_ZALO_ID = os.environ.get("OWNER_ZALO_ID", "3914118581873674309")
 TEAM_DIRECTORY = {
     "huỳnh bảo": {"uid": OWNER_ZALO_ID, "role": "Chủ nhân / Trưởng dự án", "name": "Huỳnh Bảo"},
     "bảo": {"uid": OWNER_ZALO_ID, "role": "Chủ nhân / Trưởng dự án", "name": "Huỳnh Bảo"},
+    "trung kiên": {"uid": "user_dev_backend_kien", "role": "Lập trình Backend / API", "name": "Trung Kiên"},
+    "kiên": {"uid": "user_dev_backend_kien", "role": "Lập trình Backend / API", "name": "Trung Kiên"},
     "nguyễn văn a": {"uid": "user_dev_backend_01", "role": "Lập trình Backend / API", "name": "Nguyễn Văn A"},
     "trần thị b": {"uid": "user_designer_ui_02", "role": "Thiết kế UI/UX", "name": "Trần Thị B"},
     "lê văn c": {"uid": "user_dev_frontend_03", "role": "Lập trình Frontend", "name": "Lê Văn C"},
@@ -37,13 +39,17 @@ def send_zalo_message_sync(
     Sends a message to a specific person on Zalo.
     Resolves member names or accepts direct Zalo UIDs / Phone numbers.
     """
-    recipient_key = recipient_name_or_id.strip().lower()
-    target_uid = recipient_name_or_id.strip()
-    target_name = recipient_name_or_id.strip()
-
+    raw_name = recipient_name_or_id.strip()
+    recipient_key = raw_name.lower()
+    
     if recipient_key in TEAM_DIRECTORY:
         target_uid = TEAM_DIRECTORY[recipient_key]["uid"]
         target_name = TEAM_DIRECTORY[recipient_key]["name"]
+    else:
+        # Dynamic fallback: automatically register new member
+        target_uid = f"user_{recipient_key.replace(' ', '_')}"
+        target_name = raw_name
+        TEAM_DIRECTORY[recipient_key] = {"uid": target_uid, "role": "Thành viên dự án", "name": target_name}
 
     url = f"{ZALOCRM_BASE_URL}/api/public/messages/send"
     payload = {
