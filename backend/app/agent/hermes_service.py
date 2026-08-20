@@ -79,10 +79,7 @@ class HermesService:
         self._user_memory_store: Dict[str, List[Dict[str, Any]]] = {}
 
     def _get_or_create_agent(self, session_key: str, user: User) -> AIAgent:
-        """Get or initialize a Hermes AIAgent instance for the session."""
-        if session_key in self._active_agents:
-            return self._active_agents[session_key]
-
+        """Get or initialize a Hermes AIAgent instance for the session with dynamic key rotation."""
         # Determine Model & Provider settings
         provider = (settings.LLM_PROVIDER or "mock").lower()
         base_url = None
@@ -98,7 +95,7 @@ class HermesService:
             model = settings.OPENROUTER_MODEL or "nousresearch/hermes-3-llama-3.1-405b"
             base_url = "https://openrouter.ai/api/v1"
         elif provider == "gemini":
-            api_key = gemini_key_pool.get_current_key()
+            api_key = gemini_key_pool.rotate_next()
             raw_model = settings.GEMINI_MODEL or "gemini-3.6-flash"
             model = raw_model if raw_model.startswith("gemini/") else f"gemini/{raw_model}"
             base_url = None

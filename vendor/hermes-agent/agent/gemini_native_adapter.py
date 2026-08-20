@@ -1055,40 +1055,76 @@ class GeminiNativeClient:
             return self._stream_completion(model=model, request=request, timeout=timeout)
 
         url = f"{self.base_url}/models/{model}:generateContent"
-        response = self._http.post(url, json=request, headers=self._headers(), timeout=timeout)
-        if response.status_code != 200:
-            raise gemini_http_error(response)
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise GeminiAPIError(
-                f"Invalid JSON from Gemini native API: {exc}",
-                code="gemini_invalid_json",
-                status_code=response.status_code,
-                response=response,
-            ) from exc
-        return translate_gemini_response(payload, model=model)
+        raw_keys = os.environ.get("GEMINI_API_KEYS", "").split(",") if os.environ.get("GEMINI_API_KEYS") else [self.api_key]
+        raw_keys = [k.strip() for k in raw_keys if k.strip()]
+
+        for attempt in range(max(len(raw_keys) * 2, 4)):
+            headers = self._headers()
+            response = self._http.post(url, json=request, headers=headers, timeout=timeout)
+            if response.status_code == 429 and attempt < max(len(raw_keys) * 2, 4) - 1:
+                # Rotate key and sleep adaptive delay
+                if raw_keys:
+                    self.api_key = raw_keys[(attempt + 1) % len(raw_keys)]
+                    os.environ["GEMINI_API_KEY"] = self.api_key
+                import time, re
+                body_text = response.text
+                match = re.search(r"retry in (\d+\.?\d*)", body_text)
+                wait_sec = (float(match.group(1)) / 1000.0) if "ms" in body_text else (float(match.group(1)) if match else 0.5)
+                time.sleep(min(max(wait_sec, 0.3), 3.0))
+                continue
+            if response.status_code != 200:
+                raise gemini_http_error(response)
+            try:
+                payload = response.json()
+            except ValueError as exc:
+                raise GeminiAPIError(
+                    f"Invalid JSON from Gemini native API: {exc}",
+                    code="gemini_invalid_json",
+                    status_code=response.status_code,
+                    response=response,
+                ) from exc
+            return translate_gemini_response(payload, model=model)
 
     def _stream_completion(self, *, model: str, request: Dict[str, Any], timeout: Any = None) -> Iterator[_GeminiStreamChunk]:
         url = f"{self.base_url}/models/{model}:streamGenerateContent?alt=sse"
-        stream_headers = dict(self._headers())
-        stream_headers["Accept"] = "text/event-stream"
+        raw_keys = os.environ.get("GEMINI_API_KEYS", "").split(",") if os.environ.get("GEMINI_API_KEYS") else [self.api_key]
+        raw_keys = [k.strip() for k in raw_keys if k.strip()]
 
         def _generator() -> Iterator[_GeminiStreamChunk]:
-            try:
-                with self._http.stream("POST", url, json=request, headers=stream_headers, timeout=timeout) as response:
-                    if response.status_code != 200:
-                        body_text = read_streaming_error_body(response)
-                        raise gemini_http_error(response, body_text=body_text)
-                    tool_call_indices: Dict[str, Dict[str, Any]] = {}
-                    for event in _iter_sse_events(response):
-                        for chunk in translate_stream_event(event, model, tool_call_indices):
-                            yield chunk
-            except httpx.HTTPError as exc:
-                raise GeminiAPIError(
-                    f"Gemini streaming request failed: {exc}",
-                    code="gemini_stream_error",
-                ) from exc
+            for attempt in range(max(len(raw_keys) * 2, 4)):
+                stream_headers = dict(self._headers())
+                stream_headers["Accept"] = "text/event-stream"
+                try:
+                    with self._http.stream("POST", url, json=request, headers=stream_headers, timeout=timeout) as response:
+                        if response.status_code == 429 and attempt < max(len(raw_keys) * 2, 4) - 1:
+                            body_text = read_streaming_error_body(response)
+                            if raw_keys:
+                                self.api_key = raw_keys[(attempt + 1) % len(raw_keys)]
+                                os.environ["GEMINI_API_KEY"] = self.api_key
+                            import time, re
+                            match = re.search(r"retry in (\d+\.?\d*)", body_text)
+                            wait_sec = (float(match.group(1)) / 1000.0) if "ms" in body_text else (float(match.group(1)) if match else 0.5)
+                            time.sleep(min(max(wait_sec, 0.3), 3.0))
+                            continue
+                        if response.status_code != 200:
+                            body_text = read_streaming_error_body(response)
+                            raise gemini_http_error(response, body_text=body_text)
+                        tool_call_indices: Dict[str, Dict[str, Any]] = {}
+                        for event in _iter_sse_events(response):
+                            for chunk in translate_stream_event(event, model, tool_call_indices):
+                                yield chunk
+                        break
+                except httpx.HTTPError as exc:
+                    if attempt < max(len(raw_keys) * 2, 4) - 1:
+                        if raw_keys:
+                            self.api_key = raw_keys[(attempt + 1) % len(raw_keys)]
+                        import time
+                        time.sleep(0.5)
+                        continue
+                    raise GeminiAPIError(
+                        f"Gemini streaming request failed: {exc}",
+                        code="gemini_stream_error",
+                    ) from exc
 
         return _generator()
 
