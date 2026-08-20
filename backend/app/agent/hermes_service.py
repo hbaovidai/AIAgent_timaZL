@@ -286,17 +286,28 @@ class HermesService:
 
                         if ("RESOURCE_EXHAUSTED" in final_answer or "HTTP 429" in final_answer) and attempt < max_retries - 1:
                             next_key = gemini_key_pool.rotate_next()
-                            agent.api_key = next_key
+                            # Delete cached agent so a fresh instance with next key is created
+                            if session_key in self._active_agents:
+                                del self._active_agents[session_key]
+                            agent = self._get_or_create_agent(session_key=session_key, user=user)
+                            agent.tool_start_callback = on_tool_start
+                            agent.tool_complete_callback = on_tool_complete
+                            agent.ephemeral_system_prompt = base_prompt + rag_context + history_context
                             logger.info(f"[{correlation_id}] Rate limit encountered. Auto-rotated to Key #{gemini_key_pool.current_idx + 1} and retrying immediately...")
-                            time.sleep(1.0)
+                            time.sleep(0.5)
                             continue
                         break
                     except Exception as e:
                         if ("RESOURCE_EXHAUSTED" in str(e) or "429" in str(e)) and attempt < max_retries - 1:
                             next_key = gemini_key_pool.rotate_next()
-                            agent.api_key = next_key
+                            if session_key in self._active_agents:
+                                del self._active_agents[session_key]
+                            agent = self._get_or_create_agent(session_key=session_key, user=user)
+                            agent.tool_start_callback = on_tool_start
+                            agent.tool_complete_callback = on_tool_complete
+                            agent.ephemeral_system_prompt = base_prompt + rag_context + history_context
                             logger.info(f"[{correlation_id}] Rate limit exception. Auto-rotated to Key #{gemini_key_pool.current_idx + 1} and retrying...")
-                            time.sleep(1.0)
+                            time.sleep(0.5)
                             continue
                         raise e
 
